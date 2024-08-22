@@ -5,8 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use rayon::prelude::*;
 
-use num_traits::{AsPrimitive, ToPrimitive, WrappingAdd, Bounded};
-
+use num_traits::{AsPrimitive, Bounded, ToPrimitive, WrappingAdd};
 
 #[cfg(target_pointer_width = "16")]
 mod data {
@@ -21,7 +20,7 @@ mod data {
         0xE5B7, // 0b1110'0101'1011'0111
         0xFACE, // 0b1111'1010'1100'1110
         0xF00D, // 0b1111'0000'0000'1101
-        ];
+    ];
     pub const SEED: SeedType = 0xD3B7;
     pub const SHIFTS: [u32; 8] = [8, 8, 8, 8, 8, 8, 8, 8];
 }
@@ -39,7 +38,7 @@ mod data {
         0xC3E1F763, // 0b1100'0011'1110'0001'1111'0111'0110'0011
         0xD0B3AC93, // 0b1101'0000'1011'0011'1010'1100'1001'0011
         0x9ACFC8C5, // 0b1001'1010'1100'1111'1100'1000'1100'0101
-        ];
+    ];
     pub const SEED: SeedType = 0xA37B4539;
     pub const SHIFTS: [u32; 8] = [23, 19, 17, 11, 5, 3, 2, 1];
 }
@@ -49,15 +48,15 @@ mod data {
     pub type BaseType = u64;
     pub type SeedType = BaseType;
     pub const BITS: [SeedType; 8] = [
-        (0x68E31DA4 as BaseType) << 32 | 0xB5297A4D as BaseType,  // 0b0110'1000'1110'0011'0001'1101'1010'0100'1011'0101'0010'1001'0111'1010'0100'1101
-        (0x1B56C4E9 as BaseType) << 32 | 0xA37B4539 as BaseType,  // 0b0001'1011'0101'0110'1100'1100'1110'1001'1010'0011'0111'1011'0100'0101'0011'1001
-        (0x72BE5D74 as BaseType) << 32 | 0xC3E1F763 as BaseType,  // 0b0111'0010'1011'1110'0101'1101'0111'0100'1100'0011'1110'0001'1111'0111'0110'0011
-        (0xD0B3AC93 as BaseType) << 32 | 0x9ACFC8C5 as BaseType,  // 0b1101'0000'1011'0011'1010'1100'1001'0011'1001'1010'1100'1111'1100'1000'1100'0101
-        0xFFFFFFFFFFFFFFC5,  // 0b1111'1111'1111'1111'1111'1111'1111'1101
-        0xFFFFFFFFFFFFFF43,  // 0b1111'1111'1111'1111'1111'1111'1111'0100
-        0xFFFFFFFFFFFFFC2F,  // 0b1111'1111'1111'1111'1111'1111'1100'1111
-        0xFFFFFFFFFFFFF837,  // 0b1111'1111'1111'1111'1111'1111'1100'1000
-        ];
+        (0x68E31DA4 as BaseType) << 32 | 0xB5297A4D as BaseType, // 0b0110'1000'1110'0011'0001'1101'1010'0100'1011'0101'0010'1001'0111'1010'0100'1101
+        (0x1B56C4E9 as BaseType) << 32 | 0xA37B4539 as BaseType, // 0b0001'1011'0101'0110'1100'1100'1110'1001'1010'0011'0111'1011'0100'0101'0011'1001
+        (0x72BE5D74 as BaseType) << 32 | 0xC3E1F763 as BaseType, // 0b0111'0010'1011'1110'0101'1101'0111'0100'1100'0011'1110'0001'1111'0111'0110'0011
+        (0xD0B3AC93 as BaseType) << 32 | 0x9ACFC8C5 as BaseType, // 0b1101'0000'1011'0011'1010'1100'1001'0011'1001'1010'1100'1111'1100'1000'1100'0101
+        0xFFFFFFFFFFFFFFC5, // 0b1111'1111'1111'1111'1111'1111'1111'1101
+        0xFFFFFFFFFFFFFF43, // 0b1111'1111'1111'1111'1111'1111'1111'0100
+        0xFFFFFFFFFFFFFC2F, // 0b1111'1111'1111'1111'1111'1111'1100'1111
+        0xFFFFFFFFFFFFF837, // 0b1111'1111'1111'1111'1111'1111'1100'1000
+    ];
     pub const SEED: SeedType = (0xD0B3AC93 as BaseType) << 32 | 0x9ACFC8C5;
     pub const SHIFTS: [u32; 8] = [41, 37, 29, 23, 19, 17, 11, 7];
 }
@@ -80,12 +79,15 @@ pub trait NoiseVec {
     fn with_noise(size: impl AsPrimitive<usize>) -> Self;
     fn with_random_noise(size: impl AsPrimitive<usize>) -> Self;
     fn with_seeded_noise(size: impl AsPrimitive<usize>, seed: impl AsPrimitive<BaseType>) -> Self;
-    fn with_random_seeded_noise(size: impl AsPrimitive<usize>, seed: impl AsPrimitive<BaseType>) -> Self;
+    fn with_random_seeded_noise(
+        size: impl AsPrimitive<usize>,
+        seed: impl AsPrimitive<BaseType>,
+    ) -> Self;
 }
 
 impl<O> NoiseVec for Vec<O>
 where
-    O: AsPrimitive<BaseType> + ToPrimitive + Bounded + Send + Div<Output=O> + Sub<Output=O>,
+    O: AsPrimitive<BaseType> + ToPrimitive + Bounded + Send + Div<Output = O> + Sub<Output = O>,
     f64: AsPrimitive<O>,
     usize: AsPrimitive<O>,
     BaseType: AsPrimitive<O>,
@@ -94,23 +96,19 @@ where
         Self::with_seeded_noise(size, SEED)
     }
 
-    fn with_seeded_noise(count: impl AsPrimitive<usize>, seed: impl AsPrimitive<SeedType>) -> Self
-    {
+    fn with_seeded_noise(count: impl AsPrimitive<usize>, seed: impl AsPrimitive<SeedType>) -> Self {
         let seed = seed.as_();
         let mut vec = Vec::with_capacity(count.as_());
-        vec.par_extend(
-            (0..count.as_())
-            .into_par_iter()
-            .map(|idx| {
-                if TypeId::of::<O>() == TypeId::of::<f64>() || TypeId::of::<O>() == TypeId::of::<f32>() {
-                    let noise = get_1d_noise(idx, seed, BITS, SHIFTS).to_f64().unwrap();
-                    let max = BaseType::MAX.to_f64().unwrap();
-                    noise.div(max).as_()
-                } else {
-                    get_1d_noise(idx, seed, BITS, SHIFTS)
-                }
-            })
-        );
+        vec.par_extend((0..count.as_()).into_par_iter().map(|idx| {
+            if TypeId::of::<O>() == TypeId::of::<f64>() || TypeId::of::<O>() == TypeId::of::<f32>()
+            {
+                let noise = get_1d_noise(idx, seed, BITS, SHIFTS).to_f64().unwrap();
+                let max = BaseType::MAX.to_f64().unwrap();
+                noise.div(max).as_()
+            } else {
+                get_1d_noise(idx, seed, BITS, SHIFTS)
+            }
+        }));
         vec
     }
 
@@ -118,7 +116,10 @@ where
         Self::with_random_seeded_noise(count, SEED)
     }
 
-    fn with_random_seeded_noise(count: impl AsPrimitive<usize>, seed: impl AsPrimitive<SeedType>) -> Self {
+    fn with_random_seeded_noise(
+        count: impl AsPrimitive<usize>,
+        seed: impl AsPrimitive<SeedType>,
+    ) -> Self {
         let seed = seed.as_();
         let mut vec = Vec::with_capacity(count.as_());
         let chunk_size = count.as_() / rayon::current_num_threads();
@@ -139,7 +140,7 @@ impl Default for Rng {
         let value = Self::initital_state();
         Self {
             state: value.as_(),
-            seed: get_fast_1d_noise(value, SEED)
+            seed: get_fast_1d_noise(value, SEED),
         }
     }
 }
@@ -242,7 +243,7 @@ impl Rng {
     pub fn gen_range<O>(&mut self, min: impl AsPrimitive<f64>, max: impl AsPrimitive<f64>) -> O
     where
         O: Copy + 'static,
-        f64: AsPrimitive<O>
+        f64: AsPrimitive<O>,
     {
         let min = min.as_();
         let max = max.as_();
@@ -258,7 +259,7 @@ pub fn rand() -> f64 {
     get_fast_1d_noise(value, seed)
 }
 
-pub fn get_noise<V, S, O>(position: impl IntoIterator<Item=V>, seed: S) -> O
+pub fn get_noise<V, S, O>(position: impl IntoIterator<Item = V>, seed: S) -> O
 where
     V: AsPrimitive<BaseType>,
     S: AsPrimitive<BaseType>,
@@ -267,16 +268,25 @@ where
     BaseType: AsPrimitive<S>,
     BaseType: AsPrimitive<O>,
 {
-    position.into_iter().zip(BITS.iter()).map(|(value, &bit)| {
-        let noise: O = get_1d_noise(value, seed, BITS, SHIFTS);
-        let bit = bit.as_();
-        let n = noise.as_().wrapping_mul(bit);
-        n
-    }).fold(0 as BaseType, |acc: BaseType, x| acc.wrapping_add(x))
-    .as_()
+    position
+        .into_iter()
+        .zip(BITS.iter())
+        .map(|(value, &bit)| {
+            let noise: O = get_1d_noise(value, seed, BITS, SHIFTS);
+            let bit = bit.as_();
+            let n = noise.as_().wrapping_mul(bit);
+            n
+        })
+        .fold(0 as BaseType, |acc: BaseType, x| acc.wrapping_add(x))
+        .as_()
 }
 
-pub fn get_1d_noise<X, S, O>(value: X, seed: S, bits: impl IntoIterator<Item=impl AsPrimitive<BaseType>>, shifts: impl IntoIterator<Item=impl AsPrimitive<u32>>) -> O
+pub fn get_1d_noise<X, S, O>(
+    value: X,
+    seed: S,
+    bits: impl IntoIterator<Item = impl AsPrimitive<BaseType>>,
+    shifts: impl IntoIterator<Item = impl AsPrimitive<u32>>,
+) -> O
 where
     X: AsPrimitive<BaseType>,
     S: AsPrimitive<BaseType>,
@@ -291,13 +301,13 @@ where
                     mangled_bits = mangled_bits.wrapping_mul(bit.as_());
                     mangled_bits = mangled_bits.wrapping_add(seed.as_());
                     mangled_bits ^= mangled_bits.wrapping_shr(shift.as_());
-                },
+                }
                 false => {
                     mangled_bits = mangled_bits.wrapping_mul(bit.as_());
                     mangled_bits ^= mangled_bits.wrapping_shr(shift.as_())
                 }
             },
-            false =>{
+            false => {
                 mangled_bits = mangled_bits.wrapping_add(bit.as_());
                 mangled_bits ^= mangled_bits.wrapping_shl(shift.as_())
             }
@@ -307,21 +317,29 @@ where
 }
 
 #[inline]
-pub fn get_fast_1d_noise<O>(value: impl AsPrimitive<BaseType>, seed: impl AsPrimitive<BaseType>) -> O
+pub fn get_fast_1d_noise<O>(
+    value: impl AsPrimitive<BaseType>,
+    seed: impl AsPrimitive<BaseType>,
+) -> O
 where
     O: AsPrimitive<BaseType>,
     BaseType: AsPrimitive<O>,
 {
-    get_1d_noise(value, seed, BITS.into_iter().take(3), SHIFTS.into_iter().take(3))
+    get_1d_noise(
+        value,
+        seed,
+        BITS.into_iter().take(3),
+        SHIFTS.into_iter().take(3),
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    use rstest::rstest;
     use statrs::statistics::Statistics;
     use std::fmt::Debug;
-    use rstest::rstest;
 
     #[rstest]
     #[case::u8_0(0_u8, SEED, BITS, SHIFTS, 3_u8)]
@@ -333,8 +351,13 @@ mod tests {
     #[case::u32_1(1_u32, SEED, BITS, SHIFTS, 2627291322_u32)]
     #[case::u64_0(0_u64, SEED, BITS, SHIFTS, 12296723819396979203_u64)]
     #[case::u64_1(1_u64, SEED, BITS, SHIFTS, 4035685362827872442_u64)]
-    fn test_get_1d_noise<I, S, E>(#[case] input: I, #[case] seed: S, #[case] bits: impl IntoIterator<Item=BaseType>, #[case] shifts: impl IntoIterator<Item=u32>, #[case] expected: E)
-    where
+    fn test_get_1d_noise<I, S, E>(
+        #[case] input: I,
+        #[case] seed: S,
+        #[case] bits: impl IntoIterator<Item = BaseType>,
+        #[case] shifts: impl IntoIterator<Item = u32>,
+        #[case] expected: E,
+    ) where
         I: AsPrimitive<BaseType>,
         S: AsPrimitive<BaseType>,
         E: AsPrimitive<BaseType> + PartialEq + Debug,
@@ -360,7 +383,10 @@ mod tests {
         }
         let mean = (&samples).mean();
         let std_dev = (&samples).std_dev();
-        assert!(mean >= 0.48 && mean <= 0.52 && std_dev >= 0.2885 && std_dev <= 0.2889, "Mean and Standard Deviation test failed:  mean={mean}, std_dev={std_dev}");
+        assert!(
+            mean >= 0.48 && mean <= 0.52 && std_dev >= 0.2885 && std_dev <= 0.2889,
+            "Mean and Standard Deviation test failed:  mean={mean}, std_dev={std_dev}"
+        );
     }
 
     #[test]

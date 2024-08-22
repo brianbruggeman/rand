@@ -1,16 +1,20 @@
 use std::io;
 use std::time::Duration;
 
-use crossterm::event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, MouseEventKind};
+use crossterm::event::{
+    self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, MouseEventKind,
+};
 use crossterm::execute;
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
+use crossterm::terminal::{
+    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+};
 use num_traits::AsPrimitive;
-use ratatui::prelude::Rect;
 use ratatui::backend::{Backend, CrosstermBackend};
 use ratatui::layout::{Constraint, Direction, Layout};
+use ratatui::prelude::Rect;
 use ratatui::style::{Color, Style};
-use ratatui::Terminal;
 use ratatui::widgets::{Block, Borders, Chart, Dataset, GraphType, Paragraph, Wrap};
+use ratatui::Terminal;
 
 use rand::NoiseVec;
 use statrs::statistics::Statistics;
@@ -53,15 +57,25 @@ struct App {
 impl App {
     fn new(count: impl AsPrimitive<usize>) -> Self {
         let noise = Vec::<f64>::with_noise(count);
-        Self { count: count.as_(), noise }
+        Self {
+            count: count.as_(),
+            noise,
+        }
     }
 
-    fn line(count: impl AsPrimitive<usize>, slope: impl AsPrimitive<f64>, intercept: impl AsPrimitive<f64>) -> Self {
+    fn line(
+        count: impl AsPrimitive<usize>,
+        slope: impl AsPrimitive<f64>,
+        intercept: impl AsPrimitive<f64>,
+    ) -> Self {
         let mut noise = Vec::<f64>::with_capacity(count.as_());
         for i in 0..count.as_() {
             noise.push(slope.as_() * i as f64 + intercept.as_());
         }
-        Self { count: count.as_(), noise }
+        Self {
+            count: count.as_(),
+            noise,
+        }
     }
 
     fn regenerate_noise(&mut self) {
@@ -87,8 +101,24 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                 .constraints([Constraint::Percentage(80), Constraint::Percentage(20)].as_ref())
                 .split(size);
 
-            render_chart(f, &chunks, terminal_width, terminal_height, mouse_position, &scaled_noise, mean, std_dev);
-            render_tooltip(f, mouse_position, &chunks, terminal_width, terminal_height, &scaled_noise);
+            render_chart(
+                f,
+                &chunks,
+                terminal_width,
+                terminal_height,
+                mouse_position,
+                &scaled_noise,
+                mean,
+                std_dev,
+            );
+            render_tooltip(
+                f,
+                mouse_position,
+                &chunks,
+                terminal_width,
+                terminal_height,
+                &scaled_noise,
+            );
         })?;
 
         if handle_event(terminal, &mut app, &mut mouse_position)? {
@@ -117,7 +147,11 @@ fn build_chart(datasets: Vec<Dataset>, terminal_width: f64, y_min: f64, y_max: f
         .style(Style::default().fg(Color::Gray));
 
     Chart::new(datasets)
-        .block(Block::default().borders(Borders::ALL).title("1D Noise Oscilloscope"))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("1D Noise Oscilloscope"),
+        )
         .x_axis(x_axis)
         .y_axis(y_axis)
 }
@@ -138,7 +172,11 @@ fn build_tooltip(x_index: usize, y_value: f64) -> Paragraph<'static> {
         .style(Style::default())
 }
 
-fn calculate_scaled_noise(noise: &[f64], terminal_width: f64, terminal_height: f64) -> Vec<(f64, f64)> {
+fn calculate_scaled_noise(
+    noise: &[f64],
+    terminal_width: f64,
+    terminal_height: f64,
+) -> Vec<(f64, f64)> {
     // // let x_max = noise.len() as f64 - 1.0;
     // let y_min = noise.iter().fold(f64::INFINITY, |a, &b| a.min(b));
     // let y_max = noise.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
@@ -153,21 +191,22 @@ fn calculate_scaled_noise(noise: &[f64], terminal_width: f64, terminal_height: f
     //     })
     //     .collect();
     // assert!(x.len() == terminal_width.as_());
-    noise.iter()
-    .enumerate()
-    .filter(|(x, _)| *x < terminal_width.as_())
-    .map(|(x, y)| {
-        let scaled_y = (1.0 - y) * (terminal_height - 1.0);
-        (x.as_(), scaled_y)
-    }).collect()
-
+    noise
+        .iter()
+        .enumerate()
+        .filter(|(x, _)| *x < terminal_width.as_())
+        .map(|(x, y)| {
+            let scaled_y = (1.0 - y) * (terminal_height - 1.0);
+            (x.as_(), scaled_y)
+        })
+        .collect()
 }
 
 #[allow(unused_variables)]
 fn handle_event<B: Backend>(
     terminal: &mut Terminal<B>,
     app: &mut App,
-    mouse_position: &mut Option<(u16, u16)>
+    mouse_position: &mut Option<(u16, u16)>,
 ) -> io::Result<bool> {
     if crossterm::event::poll(Duration::from_millis(10))? {
         if let Event::Key(key) = event::read()? {
@@ -195,22 +234,22 @@ fn render_chart(
     noise_mean: f64,
     noise_std_dev: f64,
 ) {
-    let (y_min, y_max) = scaled_noise.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(min_y, max_y), &(_, y)| {
-        (min_y.min(y), max_y.max(y))
-    });
+    let (y_min, y_max) = scaled_noise.iter().fold(
+        (f64::INFINITY, f64::NEG_INFINITY),
+        |(min_y, max_y), &(_, y)| (min_y.min(y), max_y.max(y)),
+    );
 
-    let mut datasets: Vec<Dataset> = vec![
-        Dataset::default()
-            .name("Noise")
-            .marker(ratatui::symbols::Marker::Braille)
-            .style(Style::default().fg(Color::Cyan))
-            .graph_type(GraphType::Line)
-            .data(scaled_noise),
-    ];
+    let mut datasets: Vec<Dataset> = vec![Dataset::default()
+        .name("Noise")
+        .marker(ratatui::symbols::Marker::Braille)
+        .style(Style::default().fg(Color::Cyan))
+        .graph_type(GraphType::Line)
+        .data(scaled_noise)];
 
     let mut highlight_line = vec![];
     if let Some((mouse_x, _)) = mouse_position {
-        let x_index = ((mouse_x as f64 / terminal_width) * scaled_noise.len() as f64).round() as usize;
+        let x_index =
+            ((mouse_x as f64 / terminal_width) * scaled_noise.len() as f64).round() as usize;
         if x_index < scaled_noise.len() {
             let x_pos = scaled_noise[x_index].0;
             highlight_line.push((x_pos, y_min));
@@ -227,12 +266,7 @@ fn render_chart(
     );
 
     let chart = build_chart(datasets, terminal_width, y_min, y_max);
-    let stats = build_stats(
-        chunks[0],
-        noise_mean,
-        noise_std_dev,
-        scaled_noise.len(),
-    );
+    let stats = build_stats(chunks[0], noise_mean, noise_std_dev, scaled_noise.len());
 
     f.render_widget(chart, chunks[0]);
     f.render_widget(stats, chunks[1]);
@@ -258,7 +292,8 @@ fn render_tooltip(
             && mouse_y >= chart_area.y
             && mouse_y < chart_area.y + chart_area.height
         {
-            let x_index = ((mouse_x as f64 / terminal_width) * scaled_noise.len() as f64).round() as usize;
+            let x_index =
+                ((mouse_x as f64 / terminal_width) * scaled_noise.len() as f64).round() as usize;
             if x_index < scaled_noise.len() {
                 let y_value = scaled_noise[x_index].1;
 
@@ -279,7 +314,10 @@ fn render_tooltip(
                 };
 
                 let tooltip = build_tooltip(x_index, y_value);
-                f.render_widget(tooltip, Rect::new(tooltip_x, tooltip_y, tooltip_width, tooltip_height));
+                f.render_widget(
+                    tooltip,
+                    Rect::new(tooltip_x, tooltip_y, tooltip_width, tooltip_height),
+                );
             }
         } else {
             return None; // Mouse is out of the chart bounds
