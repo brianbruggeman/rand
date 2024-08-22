@@ -22,44 +22,28 @@ jobs:
         id: semrel
         uses: brianbruggeman/semrel@main
 
-      - name: Install nightly
+      - name: Install rust toolchain
         if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install nightly with rustfmt and clippy
+        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          toolchain: nightly
-          override: true
-
-      - name: Install cargo fmt
-        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
-        run: rustup component add rustfmt
-
-      - name: Install clippy
-        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
-        run: rustup +nightly component add clippy
+          components: rustfmt, clippy
 
       - name: Style
         if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
-        uses: actions-rs/cargo@v1
-        with:
-          toolchain: nightly
-          command: fmt
-          args: -- --check
+        run: cargo +nightly fmt -- --check
 
       - name: Lint
         if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
-        uses: actions-rs/cargo@v1
-        with:
-          toolchain: nightly
-          command: clippy
+        run: cargo +nightly clippy
 
       - name: Build
         if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
+        run: cargo build
 
       - name: Test
         if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+        run: cargo test
