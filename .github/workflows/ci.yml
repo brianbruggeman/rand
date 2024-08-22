@@ -22,22 +22,6 @@ jobs:
         id: semrel
         uses: brianbruggeman/semrel@main
 
-      - name: Cache cargo registry
-        uses: actions/cache@v3
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-registry-
-
-      - name: Cache cargo index
-        uses: actions/cache@v3
-        with:
-          path: ~/.cargo/index
-          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-index-
-
       - name: Install nightly
         if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
         uses: actions-rs/toolchain@v1
@@ -59,11 +43,6 @@ jobs:
           args: -- --check
 
       - name: Lint
-        uses: actions/cache@v2
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-clippy-target-${{ hashFiles('**/Cargo.lock') }}
-      - name: Run cargo clippy
         uses: actions-rs/cargo@v1
         with:
           toolchain: nightly
