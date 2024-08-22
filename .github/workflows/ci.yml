@@ -20,7 +20,7 @@ jobs:
 
       - name: Run semrel
         id: semrel
-        uses: brianbruggeman/semrel@v0.5.0
+        uses: brianbruggeman/semrel
 
       - name: Cache cargo registry
         uses: actions/cache@v3
