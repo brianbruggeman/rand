@@ -12,8 +12,6 @@ jobs:
 
         - name: Set up Rust Toolchain
           uses: dtolnay/rust-toolchain@stable
-          with:
-            components: rustfmt, clippy
 
         - name: Load Cached Cargo Audit binary
           uses: actions/cache@v4
