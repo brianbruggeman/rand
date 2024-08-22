@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   cargo_fmt:
-    name: Format
+    name: CI
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
