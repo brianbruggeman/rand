@@ -30,12 +30,15 @@ jobs:
           override: true
 
       - name: Install cargo fmt
+        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
         run: rustup component add rustfmt
 
       - name: Install clippy
+        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
         run: rustup +nightly component add clippy
 
       - name: Style
+        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
         uses: actions-rs/cargo@v1
         with:
           toolchain: nightly
@@ -43,17 +46,20 @@ jobs:
           args: -- --check
 
       - name: Lint
+        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
         uses: actions-rs/cargo@v1
         with:
           toolchain: nightly
           command: clippy
 
       - name: Build
+        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
         uses: actions-rs/cargo@v1
         with:
           command: build
 
       - name: Test
+        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
         uses: actions-rs/cargo@v1
         with:
           command: test
