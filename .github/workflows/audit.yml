@@ -1,0 +1,32 @@
+name: Audit
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Run every Sunday at 00:00
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+        - uses: actions/checkout@v4
+
+        - name: Set up Rust Toolchain
+          uses: dtolnay/rust-toolchain@stable
+          with:
+            components: rustfmt, clippy
+
+        - name: Load Cached Cargo Audit binary
+          uses: actions/cache@v4
+          with:
+            path: |
+              ~/.cargo/bin/cargo-audit
+            key: ${{ runner.os }}-cargo-audit
+
+        - name: Ensure cargo-audit is installed
+          run: |
+            if ! command -v cargo-audit &>/dev/null; then
+              cargo install cargo-audit
+            fi
+
+        - name: Run cargo audit
+          run: cargo audit
