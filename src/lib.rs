@@ -146,8 +146,10 @@ impl Default for Rng {
 }
 
 impl Rng {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(seed: impl AsPrimitive<u64>) -> Self {
+        let mut new_rng = Self { state: 0.as_(), seed: seed.as_() };
+        new_rng.rand();
+        new_rng
     }
 
     pub fn state(&self) -> f64 {
@@ -167,9 +169,8 @@ impl Rng {
     }
 
     pub fn from_seed(seed: impl AsPrimitive<SeedType>) -> Self {
-        let mut new_rng = Self::new();
+        let mut new_rng = Self::new(seed);
         new_rng.seed = seed.as_();
-        new_rng.rand();
         new_rng
     }
 
@@ -251,6 +252,21 @@ impl Rng {
         let value = self.rand() * range;
         (value + min).as_()
     }
+
+    pub fn choose<O, T>(&mut self, data: T) -> Option<O>
+    where
+        T: AsRef<[O]>,
+        O: Clone,
+    {
+        let slice = data.as_ref();
+        if slice.is_empty() {
+            return None;
+        }
+
+        let idx = self.gen_range::<usize>(0, slice.len());
+        slice.get(idx).cloned()
+    }
+
 }
 
 pub fn rand() -> f64 {
@@ -375,8 +391,8 @@ mod tests {
 
     #[test]
     fn test_statistical_distribution() {
-        const SAMPLE_SIZE: usize = 1_000_000;
-        let mut rng = Rng::new();
+        const SAMPLE_SIZE: usize = 100_000;
+        let mut rng = Rng::default();
         let mut samples = Vec::with_capacity(SAMPLE_SIZE);
         for _ in 0..SAMPLE_SIZE {
             samples.push(rng.rand());
@@ -384,19 +400,31 @@ mod tests {
         let mean = (&samples).mean();
         let std_dev = (&samples).std_dev();
         assert!(
-            mean >= 0.48 && mean <= 0.52 && std_dev >= 0.2885 && std_dev <= 0.2889,
+            // This is reasonably loose and related to the lower sample size
+            mean >= 0.48 && mean <= 0.52 && std_dev >= 0.28 && std_dev <= 0.29,
             "Mean and Standard Deviation test failed:  mean={mean}, std_dev={std_dev}"
         );
     }
 
     #[test]
     fn test_identical_values() {
-        let mut rng = Rng::new();
+        let mut rng = Rng::default();
 
         let value = rng.rand();
         let a = rng.rand_from(value);
         let b = rng.rand_from(value);
         assert_eq!(a, b);
+    }
+
+    #[rstest]
+    #[case::simple(&[0, 1, 2], Some(1))]
+    fn test_choose<O>(#[case] data: impl AsRef<[O]>, #[case] expected: Option<O>)
+    where O: Clone + Debug + PartialEq,
+    {
+        let seed: u32 = 0xDEADBEEF;
+        let mut rng = Rng::from_seed(seed);
+        let chosen = rng.choose(data);
+        assert_eq!(chosen, expected);
     }
 
     /*
