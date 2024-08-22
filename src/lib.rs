@@ -292,8 +292,7 @@ where
         .map(|(value, &bit)| {
             let noise: O = get_1d_noise(value, seed, BITS, SHIFTS);
             let bit = bit.as_();
-            let n = noise.as_().wrapping_mul(bit);
-            n
+            noise.as_().wrapping_mul(bit)
         })
         .fold(0 as BaseType, |acc: BaseType, x| acc.wrapping_add(x))
         .as_()
