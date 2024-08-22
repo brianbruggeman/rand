@@ -147,7 +147,10 @@ impl Default for Rng {
 
 impl Rng {
     pub fn new(seed: impl AsPrimitive<u64>) -> Self {
-        let mut new_rng = Self { state: 0.as_(), seed: seed.as_() };
+        let mut new_rng = Self {
+            state: 0.as_(),
+            seed: seed.as_(),
+        };
         new_rng.rand();
         new_rng
     }
@@ -266,7 +269,6 @@ impl Rng {
         let idx = self.gen_range::<usize>(0, slice.len());
         slice.get(idx).cloned()
     }
-
 }
 
 pub fn rand() -> f64 {
@@ -419,7 +421,8 @@ mod tests {
     #[rstest]
     #[case::simple(&[0, 1, 2], Some(1))]
     fn test_choose<O>(#[case] data: impl AsRef<[O]>, #[case] expected: Option<O>)
-    where O: Clone + Debug + PartialEq,
+    where
+        O: Clone + Debug + PartialEq,
     {
         let seed: u32 = 0xDEADBEEF;
         let mut rng = Rng::from_seed(seed);
