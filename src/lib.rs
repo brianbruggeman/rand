@@ -1,6 +1,6 @@
 use std::any::TypeId;
 use std::iter::Sum;
-use std::ops::{Div, RangeBounds, Bound, Sub};
+use std::ops::{Bound, Div, RangeBounds, Sub};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rayon::prelude::*;
@@ -254,8 +254,14 @@ impl Rng {
         };
 
         let end = match range.end_bound() {
-            Bound::Included(end) => end.to_f64().unwrap_or(O::max_value().to_f64().unwrap_or(f64::MAX)),
-            Bound::Excluded(end) => end.to_f64().unwrap_or(O::max_value().to_f64().unwrap_or(f64::MAX)) - f64::EPSILON,
+            Bound::Included(end) => end
+                .to_f64()
+                .unwrap_or(O::max_value().to_f64().unwrap_or(f64::MAX)),
+            Bound::Excluded(end) => {
+                end.to_f64()
+                    .unwrap_or(O::max_value().to_f64().unwrap_or(f64::MAX))
+                    - f64::EPSILON
+            }
             Bound::Unbounded => O::max_value().to_f64().unwrap_or(f64::MAX), // Cap at O's max value
         };
 
@@ -450,9 +456,9 @@ mod tests {
     #[case::simple_str(["a", "b", "c"], Some("c"))]
     #[case::simple_float([1.0, -1.0, 0.0], Some(-0.0))]
     #[case::more_floats(vec![1.0, -1.0, 0.0, 0.5], Some(0.5))]
-    fn test_choose<'a, O>(#[case] data: impl IntoIterator<Item=O>, #[case] expected: Option<O>)
+    fn test_choose<'a, O>(#[case] data: impl IntoIterator<Item = O>, #[case] expected: Option<O>)
     where
-        O: PartialEq + Debug + 'a
+        O: PartialEq + Debug + 'a,
     {
         let data = data.into_iter().collect::<Vec<_>>();
         let data_iter = data.iter();
@@ -476,14 +482,17 @@ mod tests {
     #[case::u16_2d_0([0_u16, 1_u16], SEED, 3432_u16)]
     #[case::u16_2d_1([1_u16, 0_u16], SEED, 10432_u16)]
     #[case::u16_3d_0([0_u16, 1_u16, 2_u16], SEED, 53411_u16)]
-    fn test_get_noise<I, S, E>(#[case] input: impl IntoIterator<Item=I>, #[case] seed: S, #[case] expected: E)
-    where
-    I: AsPrimitive<BaseType>,
-    S: AsPrimitive<BaseType>,
-    E: AsPrimitive<BaseType> + PartialEq + Debug + Sum<E> + WrappingAdd,
-    BaseType: AsPrimitive<I>,
-    BaseType: AsPrimitive<S>,
-    BaseType: AsPrimitive<E>,
+    fn test_get_noise<I, S, E>(
+        #[case] input: impl IntoIterator<Item = I>,
+        #[case] seed: S,
+        #[case] expected: E,
+    ) where
+        I: AsPrimitive<BaseType>,
+        S: AsPrimitive<BaseType>,
+        E: AsPrimitive<BaseType> + PartialEq + Debug + Sum<E> + WrappingAdd,
+        BaseType: AsPrimitive<I>,
+        BaseType: AsPrimitive<S>,
+        BaseType: AsPrimitive<E>,
     {
         let result: E = get_noise(input.into_iter(), seed);
         assert_eq!(result, expected);

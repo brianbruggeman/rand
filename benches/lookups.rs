@@ -26,7 +26,6 @@ fn criterion_benchmark(c: &mut Criterion) {
             black_box(x)
         })
     });
-
 }
 
 criterion_group!(benches, criterion_benchmark);

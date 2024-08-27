@@ -31,3 +31,11 @@ harness = false
 [[bench]]
 name = "range"
 harness = false
+
+[[bench]]
+name = "perf"
+harness = false
+
+
+[profile.bench]
+debug = true

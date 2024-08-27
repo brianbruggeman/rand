@@ -1,13 +1,15 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("gen_range_0_100", |b| {
+    c.bench_function("rand_large", |b| {
         let mut rng = black_box(rand::Rng::default());
-        let range = black_box(0..=100);
         b.iter(|| {
-            let x = rng.gen_range(range.clone());
-            black_box(x)
-        })
+            let mut sum = 0.0;
+            for _ in 0..100_000 {
+                sum += rng.rand();
+            }
+            black_box(sum);
+        });
     });
 }
 
