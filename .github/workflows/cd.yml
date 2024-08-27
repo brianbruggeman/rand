@@ -1,0 +1,171 @@
+name: CD
+
+permissions:
+  contents: write
+
+on:
+    workflow_run:
+      workflows: ["CI"]
+      types:
+        - completed
+
+    workflow_dispatch:
+      inputs:
+        ref:
+          description: 'Commit SHA to run the workflow on'
+          required: true
+          default: 'main'
+
+jobs:
+  semrel:
+    runs-on: ubuntu-latest
+    outputs:
+      current-version: ${{ steps.semrel.outputs.current-version }}
+      log: ${{ steps.semrel.outputs.log }}
+      next-version: ${{ steps.semrel.outputs.next-version }}
+      release-notes: ${{ steps.semrel.outputs.release-notes }}
+      version-changed: ${{ steps.semrel.outputs.version-changed }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run semrel
+        id: semrel
+        uses: brianbruggeman/semrel@main
+
+  cross-build:
+    needs: [semrel]
+    if: ${{ needs.semrel.outputs.version-changed == 'true' }}
+    strategy:
+        matrix:
+          include:
+            - target: aarch64-apple-darwin
+              os: macos-latest
+            - target: aarch64-unknown-linux-musl
+              os: ubuntu-latest
+            - target: x86_64-unknown-linux-musl
+              os: ubuntu-latest
+
+    runs-on: ${{ matrix.os }}
+    steps:
+        - uses: actions/checkout@v4
+        - name: Install rust toolchain
+          uses: dtolnay/rust-toolchain@stable
+          with:
+              targets: ${{ matrix.target }}
+        - name: Cache Cross
+          id: cache-cross
+          uses: actions/cache@v4
+          with:
+            path: ~/.cargo/bin/cross
+            key: ${{ matrix.os }}-cross
+        - name: Install Cross
+          run: |
+            if command -v cross &> /dev/null
+            then
+                echo "Cross is installed.";
+            else
+                echo "Cross must be installed.";
+                cargo install cross
+            fi
+        - name: Cross Build
+          run: |
+            cross build --target ${{ matrix.target }} --release
+        - name: Archive
+          uses: actions/upload-artifact@v4
+          with:
+            name: ${{ matrix.target }}
+            path: target/${{ matrix.target }}/release/refresh
+
+  native-build:
+    needs: [semrel]
+    if: ${{ needs.semrel.outputs.version-changed == 'true' }}
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-apple-darwin
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Build
+        run: |
+          cargo build --release --target=${{ matrix.target }}
+      - name: Archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/refresh
+
+  release:
+    needs: [semrel, cross-build, native-build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+      - name: Install tar
+        run: sudo apt-get install tar
+      - name: Set permissions on artifacts
+        run: |
+          chmod +x aarch64-apple-darwin/refresh
+          chmod +x x86_64-apple-darwin/refresh
+          chmod +x aarch64-unknown-linux-musl/refresh
+          chmod +x x86_64-unknown-linux-musl/refresh
+      - name: Update artifact names
+        run: |
+          mv aarch64-apple-darwin/refresh aarch64-apple-darwin/refresh-${{ needs.semrel.outputs.next-version }}-amd64-apple-darwin
+          mv x86_64-apple-darwin/refresh x86_64-apple-darwin/refresh-${{ needs.semrel.outputs.next-version }}-x86_64-apple-darwin
+          mv aarch64-unknown-linux-musl/refresh aarch64-unknown-linux-musl/refresh-${{ needs.semrel.outputs.next-version }}-aarch64-unknown-linux-musl
+          mv x86_64-unknown-linux-musl/refresh x86_64-unknown-linux-musl/refresh-${{ needs.semrel.outputs.next-version }}-x86_64-unknown-linux-musl
+      - name: Package Artifacts
+        run: |
+          tar czvf refresh-${{ needs.semrel.outputs.next-version }}-arm64-apple-darwin.tgz -C aarch64-apple-darwin .
+          tar czvf refresh-${{ needs.semrel.outputs.next-version }}-x86_64-apple-darwin.tgz -C x86_64-apple-darwin .
+          tar czvf refresh-${{ needs.semrel.outputs.next-version }}-aarch64-unknown-linux-musl.tgz -C aarch64-unknown-linux-musl .
+          tar czvf refresh-${{ needs.semrel.outputs.next-version }}-x86_64-unknown-linux-musl.tgz -C x86_64-unknown-linux-musl .
+      - uses: brianbruggeman/semrel@main
+      - name: Commit changes
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          ./semrel update
+          cargo update
+          git add Cargo.toml Cargo.lock
+          # Create a nice log
+          printf "%s\n\n%s\n\n# Log\n%s\n" \
+          "${{ needs.semrel.outputs.next-version }}" \
+          "$(echo '${{ needs.semrel.outputs.release-notes }}' | base64 --decode)" \
+          "$(echo '${{ needs.semrel.outputs.log }}' | base64 --decode)" \
+          | git commit -F -
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git push origin HEAD:main
+      - name: Create Release Notes
+        run: printf "%s" "${{ needs.semrel.outputs.release-notes }}" | base64 --decode > release-notes-${{ needs.semrel.outputs.next-version }}.md
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            refresh-${{ needs.semrel.outputs.next-version }}-arm64-apple-darwin.tgz
+            refresh-${{ needs.semrel.outputs.next-version }}-x86_64-apple-darwin.tgz
+            refresh-${{ needs.semrel.outputs.next-version }}-aarch64-unknown-linux-musl.tgz
+            refresh-${{ needs.semrel.outputs.next-version }}-x86_64-unknown-linux-musl.tgz
+          name: refresh-${{ needs.semrel.outputs.next-version }}
+          body_path: release-notes-${{ needs.semrel.outputs.next-version }}.md
+          generate_release_notes: false
+          make_latest: true
+          draft: false
+          prerelease: false
+          tag_name: ${{ needs.semrel.outputs.next-version }}
+          token: ${{ secrets.GITHUB_TOKEN }}
