@@ -1,6 +1,6 @@
 use std::any::TypeId;
 use std::iter::Sum;
-use std::ops::{Div, Sub, Range};
+use std::ops::{Div, Range, Sub};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rayon::prelude::*;
