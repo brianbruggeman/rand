@@ -1,4 +1,4 @@
-[![CI Workflow](https://github.com/brianbruggeman/rand/actions/workflows/ci.yml/badge.svg)](https://github.com/brianbruggeman/rand/actions/workflows/ci.yml)
+[![CI Workflow](https://github.com/brianbruggeman/rand/actions/workflows/ci.yml/badge.svg)](https://github.com/brianbruggeman/rand/actions/workflows/ci.yml)[![CD Workflow](https://github.com/brianbruggeman/rand/actions/workflows/cd.yml/badge.svg)](https://github.com/brianbruggeman/rand/actions/workflows/cd.yml)[![Audit Workflow](https://github.com/brianbruggeman/rand/actions/workflows/audit.yml/badge.svg)](https://github.com/brianbruggeman/rand/actions/workflows/audit.yml)
 
 # Rand
 
