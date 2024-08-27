@@ -1,22 +1,26 @@
 [package]
 name = "rand"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
-
-[[bench]]
-name = "benchmark"
-harness = false
 
 [dependencies]
 crossterm = "0.28.1"
 num-format = "0.4.4"
-num-traits = { version = "0.2.19", features = ["i128", "libm"] }
 once_cell = "1.19.0"
 ratatui = "0.28.1"
 rayon = "1.10.0"
 statrs = "0.17.1"
 yansi = "1.0.1"
 
+[dependencies.num-traits]
+version = "0.2.19"
+features = ["i128", "libm"]
+
 [dev-dependencies]
 criterion = "0.5.1"
 rstest = "0.22.0"
+
+[[bench]]
+name = "benchmark"
+harness = false
+required-features = []
