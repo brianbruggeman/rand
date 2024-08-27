@@ -1,6 +1,6 @@
 use std::any::TypeId;
 use std::iter::Sum;
-use std::ops::{Div, Range, Sub};
+use std::ops::{Div, RangeBounds, Bound, Sub};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rayon::prelude::*;
@@ -64,6 +64,7 @@ mod data {
 type BaseType = data::BaseType;
 type SeedType = data::SeedType;
 
+const BASE_TYPE_MAX_F64: f64 = BaseType::MAX as f64;
 const SEED: SeedType = data::SEED;
 const BITS: [SeedType; 8] = data::BITS;
 const SHIFTS: [u32; 8] = data::SHIFTS;
@@ -182,13 +183,10 @@ impl Rng {
         self
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn rand(&mut self) -> f64 {
-        let noise = get_1d_noise(self.state, self.seed, BITS, SHIFTS);
-        self.state = noise;
-        let floating_noise = noise.to_f64().unwrap();
-        let max = BaseType::MAX.to_f64().unwrap();
-        floating_noise.div(max).as_()
+        self.state = get_fast_1d_noise::<f64>(self.state, self.seed) / BASE_TYPE_MAX_F64;
+        self.state
     }
 
     pub fn gen<O>(&mut self) -> O
@@ -222,7 +220,7 @@ impl Rng {
     }
 
     #[inline]
-    pub fn random_from<O>(&mut self, value: impl AsPrimitive<f64>) -> O
+    pub fn random_from<O>(&self, value: impl AsPrimitive<f64>) -> O
     where
         O: AsPrimitive<BaseType> + Bounded,
         f64: AsPrimitive<O>,
@@ -244,37 +242,67 @@ impl Rng {
         (value + min).as_()
     }
 
-    pub fn gen_range<O>(&mut self, range: Range<impl ToPrimitive>) -> O
+    #[inline(always)]
+    pub fn gen_range<O>(&mut self, range: impl RangeBounds<O>) -> O
     where
-        O: Copy + 'static + Default,
-        f64: AsPrimitive<O>,
+        f64: AsPrimitive<O> + ToPrimitive,
+        O: Copy + ToPrimitive + 'static + Bounded,
     {
-        if let Some(end) = range.end.to_f64() {
-            if let Some(start) = range.start.to_f64() {
-                let range_size = end - start;
-                let value = self.rand() * range_size;
-                (value + start).as_()
-            } else {
-                O::default()
+        let start = match range.start_bound() {
+            Bound::Included(start) => start.to_f64().unwrap_or_default(),
+            Bound::Excluded(start) => start.to_f64().unwrap_or_default() + f64::EPSILON,
+            Bound::Unbounded => 0.0, // Default for unbounded start
+        };
+
+        let end = match range.end_bound() {
+            Bound::Included(end) => end.to_f64().unwrap_or(O::max_value().to_f64().unwrap_or(f64::MAX)),
+            Bound::Excluded(end) => end.to_f64().unwrap_or(O::max_value().to_f64().unwrap_or(f64::MAX)) - f64::EPSILON,
+            Bound::Unbounded => O::max_value().to_f64().unwrap_or(f64::MAX), // Cap at O's max value
+        };
+
+        // Compute the range size
+        let range_size = (end - start).abs();
+
+        // Generate the random value in the calculated range
+        let value = start + self.rand() * range_size;
+
+        // Convert back to the output type
+        value.min(O::max_value().to_f64().unwrap()).as_()
+    }
+
+    pub fn choose<'a, I, O>(&mut self, mut iter: I) -> Option<&'a O>
+    where
+        I: Iterator<Item = &'a O>,
+        O: 'a,
+    {
+        let (lower_bound, upper_bound) = iter.size_hint();
+
+        // If we have an exact size hint, use direct indexing
+        if let Some(len) = upper_bound {
+            if lower_bound == len && len > 0 {
+                let idx = self.gen_range(0..len);
+                return iter.nth(idx);
             }
-        } else {
-            O::default()
-        }
-    }
-
-    pub fn choose<O, T>(&mut self, data: T) -> Option<O>
-    where
-        T: AsRef<[O]>,
-        O: Clone,
-    {
-        let slice = data.as_ref();
-        if slice.is_empty() {
-            return None;
         }
 
-        let idx = self.gen_range::<usize>(0..slice.len());
-        slice.get(idx).cloned()
+        // Fallback: reservoir sampling for unknown-size iterators
+        let mut chosen: Option<&'a O> = None;
+        let mut count = 0;
+
+        while let Some(item) = iter.next() {
+            count += 1;
+            // Randomly replace the chosen item with probability 1/count
+            if self.gen_range(0..count) == 0 {
+                chosen = Some(item);
+            }
+        }
+
+        chosen
     }
+}
+
+pub fn thread_rng() -> Rng {
+    Rng::default()
 }
 
 pub fn rand() -> f64 {
@@ -424,32 +452,36 @@ mod tests {
     }
 
     #[rstest]
-    #[case::simple(&[0, 1, 2], Some(1))]
-    fn test_choose<O>(#[case] data: impl AsRef<[O]>, #[case] expected: Option<O>)
+    #[case::simple_number([0, 1, 2], Some(1))]
+    #[case::simple_str(["a", "b", "c"], Some("b"))]
+    #[case::simple_float([1.0, -1.0, 0.0], Some(-1.0))]
+    #[case::more_floats(vec![1.0, -1.0, 0.0, 0.5], Some(-1.0))]
+    fn test_choose<'a, O>(#[case] data: impl IntoIterator<Item=O>, #[case] expected: Option<O>)
     where
-        O: Clone + Debug + PartialEq,
+        O: PartialEq + Debug + 'a
     {
+        let data = data.into_iter().collect::<Vec<_>>();
+        let data_iter = data.iter();
         let seed: u32 = 0xDEADBEEF;
         let mut rng = Rng::from_seed(seed);
-        let chosen = rng.choose(data);
-        assert_eq!(chosen, expected);
+        let chosen = rng.choose(data_iter);
+        assert_eq!(chosen, expected.as_ref());
     }
 
-    /*
     #[rstest]
-    #[case::u8_1d_0([0_u8], SEED, 136_u8)]
-    #[case::u8_1d_1([1_u8], SEED, 12_u8)]
-    #[case::u8_2d_0([0_u8, 1_u8], SEED, 151_u8)]
-    #[case::u8_2d_1([1_u8, 0_u8], SEED, 54_u8)]
-    #[case::u8_3d_0([0_u8, 1_u8, 2_u8], SEED, 197_u8)]
-    #[case::u8_3d_1([1_u8, 0_u8, 2_u8], SEED, 100_u8)]
-    #[case::u8_4d_0([0_u8, 1_u8, 2_u8, 3_u8], SEED, 209_u8)]
-    #[case::u8_4d_1([1_u8, 0_u8, 2_u8, 3_u8], SEED, 112_u8)]
-    #[case::u16_1d_0([0_u16], SEED, 45192_u16)]
-    #[case::u16_1d_1([1_u16], SEED, 10508_u16)]
-    #[case::u16_2d_0([0_u16, 1_u16], SEED, 15767_u16)]
-    #[case::u16_2d_1([1_u16, 0_u16], SEED, 29750_u16)]
-    #[case::u16_3d_0([0_u16, 1_u16, 2_u16], SEED, 38853_u16)]
+    #[case::u8_1d_0([0_u8], SEED, 115_u8)]
+    #[case::u8_1d_1([1_u8], SEED, 57_u8)]
+    #[case::u8_2d_0([0_u8, 1_u8], SEED, 104_u8)]
+    #[case::u8_2d_1([1_u8, 0_u8], SEED, 192_u8)]
+    #[case::u8_3d_0([0_u8, 1_u8, 2_u8], SEED, 163_u8)]
+    #[case::u8_3d_1([1_u8, 0_u8, 2_u8], SEED, 251_u8)]
+    #[case::u8_4d_0([0_u8, 1_u8, 2_u8, 3_u8], SEED, 53_u8)]
+    #[case::u8_4d_1([1_u8, 0_u8, 2_u8, 3_u8], SEED, 141_u8)]
+    #[case::u16_1d_0([0_u16], SEED, 43891_u16)]
+    #[case::u16_1d_1([1_u16], SEED, 18233_u16)]
+    #[case::u16_2d_0([0_u16, 1_u16], SEED, 3432_u16)]
+    #[case::u16_2d_1([1_u16, 0_u16], SEED, 10432_u16)]
+    #[case::u16_3d_0([0_u16, 1_u16, 2_u16], SEED, 53411_u16)]
     fn test_get_noise<I, S, E>(#[case] input: impl IntoIterator<Item=I>, #[case] seed: S, #[case] expected: E)
     where
     I: AsPrimitive<BaseType>,
@@ -462,5 +494,4 @@ mod tests {
         let result: E = get_noise(input.into_iter(), seed);
         assert_eq!(result, expected);
     }
-    */
 }

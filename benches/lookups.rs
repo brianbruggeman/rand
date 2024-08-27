@@ -19,13 +19,14 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("rand", |b| {
-        let mut rng = black_box(rand::Rng::default());
+    c.bench_function("random_from", |b| {
+        let rng = black_box(rand::Rng::default());
         b.iter(|| {
-            let x = rng.rand();
+            let x = rng.random_from::<u32>(black_box(0.0));
             black_box(x)
         })
     });
+
 }
 
 criterion_group!(benches, criterion_benchmark);
