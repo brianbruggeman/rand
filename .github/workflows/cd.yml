@@ -152,6 +152,8 @@ jobs:
           git push origin HEAD:main
       - name: Create Release Notes
         run: printf "%s" "${{ needs.semrel.outputs.release-notes }}" | base64 --decode > release-notes-${{ needs.semrel.outputs.next-version }}.md
+      - name: List Files
+        run: ls -R
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v2
