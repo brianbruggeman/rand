@@ -185,8 +185,8 @@ impl Rng {
 
     #[inline(always)]
     pub fn rand(&mut self) -> f64 {
-        self.state = get_fast_1d_noise::<f64>(self.state, self.seed) / BASE_TYPE_MAX_F64;
-        self.state
+        self.state = self.random_from(self.state);
+        self.state / BASE_TYPE_MAX_F64
     }
 
     pub fn gen<O>(&mut self) -> O
@@ -202,24 +202,23 @@ impl Rng {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn rand_from(&self, value: impl AsPrimitive<f64>) -> f64 {
-        const MAX_VALUE_F64: f64 = BaseType::MAX as f64;
-        get_fast_1d_noise::<f64>(value.as_(), self.seed) / MAX_VALUE_F64
+        self.random_from::<f64>(value) / BASE_TYPE_MAX_F64
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn random<O>(&mut self) -> O
     where
         O: AsPrimitive<BaseType> + Bounded,
         f64: AsPrimitive<O>,
         BaseType: AsPrimitive<O>,
     {
-        self.rand();
+        self.rand(); // update state
         self.random_from(self.state)
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn random_from<O>(&self, value: impl AsPrimitive<f64>) -> O
     where
         O: AsPrimitive<BaseType> + Bounded,
@@ -270,18 +269,13 @@ impl Rng {
         value.min(O::max_value().to_f64().unwrap()).as_()
     }
 
-    pub fn choose<'a, I, O>(&mut self, mut iter: I) -> Option<&'a O>
-    where
-        I: Iterator<Item = &'a O>,
-        O: 'a,
-    {
-        let (lower_bound, upper_bound) = iter.size_hint();
+    pub fn choose<'a, O>(&mut self, mut data: impl Iterator<Item = &'a O>) -> Option<&'a O> {
+        let (lower_bound, upper_bound) = data.size_hint();
 
-        // If we have an exact size hint, use direct indexing
         if let Some(len) = upper_bound {
-            if lower_bound == len && len > 0 {
+            if lower_bound == len {
                 let idx = self.gen_range(0..len);
-                return iter.nth(idx);
+                return data.nth(idx);
             }
         }
 
@@ -289,14 +283,13 @@ impl Rng {
         let mut chosen: Option<&'a O> = None;
         let mut count = 0;
 
-        while let Some(item) = iter.next() {
+        while let Some(item) = data.next() {
             count += 1;
             // Randomly replace the chosen item with probability 1/count
             if self.gen_range(0..count) == 0 {
                 chosen = Some(item);
             }
         }
-
         chosen
     }
 }
@@ -332,6 +325,7 @@ where
         .as_()
 }
 
+#[inline(always)]
 pub fn get_1d_noise<X, S, O>(
     value: X,
     seed: S,
@@ -367,7 +361,7 @@ where
     mangled_bits.as_()
 }
 
-#[inline]
+#[inline(always)]
 pub fn get_fast_1d_noise<O>(
     value: impl AsPrimitive<BaseType>,
     seed: impl AsPrimitive<BaseType>,
@@ -426,7 +420,7 @@ mod tests {
 
     #[test]
     fn test_statistical_distribution() {
-        const SAMPLE_SIZE: usize = 100_000;
+        const SAMPLE_SIZE: usize = 1_000_000;
         let mut rng = Rng::default();
         let mut samples = Vec::with_capacity(SAMPLE_SIZE);
         for _ in 0..SAMPLE_SIZE {
@@ -452,10 +446,10 @@ mod tests {
     }
 
     #[rstest]
-    #[case::simple_number([0, 1, 2], Some(1))]
-    #[case::simple_str(["a", "b", "c"], Some("b"))]
-    #[case::simple_float([1.0, -1.0, 0.0], Some(-1.0))]
-    #[case::more_floats(vec![1.0, -1.0, 0.0, 0.5], Some(-1.0))]
+    #[case::simple_number([0, 1, 2], Some(2))]
+    #[case::simple_str(["a", "b", "c"], Some("c"))]
+    #[case::simple_float([1.0, -1.0, 0.0], Some(-0.0))]
+    #[case::more_floats(vec![1.0, -1.0, 0.0, 0.5], Some(0.5))]
     fn test_choose<'a, O>(#[case] data: impl IntoIterator<Item=O>, #[case] expected: Option<O>)
     where
         O: PartialEq + Debug + 'a
