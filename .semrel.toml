@@ -1,0 +1,13 @@
+[semrel.rules]
+feat = "minor"
+chore = "patch"
+fix = "patch"
+perf = "patch"
+refactor = "patch"
+revert = "patch"
+style = "patch"
+build = "none"
+ci = "patch"
+cd = "patch"
+docs = "none"
+test = "none"
