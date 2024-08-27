@@ -1,6 +1,6 @@
 use std::any::TypeId;
 use std::iter::Sum;
-use std::ops::{Div, Sub};
+use std::ops::{Div, Sub, Range};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rayon::prelude::*;
@@ -244,16 +244,22 @@ impl Rng {
         (value + min).as_()
     }
 
-    pub fn gen_range<O>(&mut self, min: impl AsPrimitive<f64>, max: impl AsPrimitive<f64>) -> O
+    pub fn gen_range<O>(&mut self, range: Range<impl ToPrimitive>) -> O
     where
-        O: Copy + 'static,
+        O: Copy + 'static + Default,
         f64: AsPrimitive<O>,
     {
-        let min = min.as_();
-        let max = max.as_();
-        let range = max - min;
-        let value = self.rand() * range;
-        (value + min).as_()
+        if let Some(end) = range.end.to_f64() {
+            if let Some(start) = range.start.to_f64() {
+                let range_size = end - start;
+                let value = self.rand() * range_size;
+                (value + start).as_()
+            } else {
+                O::default()
+            }
+        } else {
+            O::default()
+        }
     }
 
     pub fn choose<O, T>(&mut self, data: T) -> Option<O>
@@ -266,7 +272,7 @@ impl Rng {
             return None;
         }
 
-        let idx = self.gen_range::<usize>(0, slice.len());
+        let idx = self.gen_range::<usize>(0..slice.len());
         slice.get(idx).cloned()
     }
 }
