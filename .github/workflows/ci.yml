@@ -58,6 +58,5 @@ jobs:
         if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version || github.event.inputs.force }}
         env:
             BENCHMARK_RAND_MEDIAN_TIME_NS: ${{ vars.BENCHMARK_RAND_MEDIAN_TIME_NS }}
-        run: |
-          echo "BENCHMARK_RAND_MEDIAN_TIME_NS: ${BENCHMARK_RAND_MEDIAN_TIME_NS}"
+        run:
           cargo bench --bench=rand
