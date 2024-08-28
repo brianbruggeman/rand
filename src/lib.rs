@@ -52,10 +52,10 @@ mod data {
         (0x1B56C4E9 as BaseType) << 32 | 0xA37B4539 as BaseType, // 0b0001'1011'0101'0110'1100'1100'1110'1001'1010'0011'0111'1011'0100'0101'0011'1001
         (0x72BE5D74 as BaseType) << 32 | 0xC3E1F763 as BaseType, // 0b0111'0010'1011'1110'0101'1101'0111'0100'1100'0011'1110'0001'1111'0111'0110'0011
         (0xD0B3AC93 as BaseType) << 32 | 0x9ACFC8C5 as BaseType, // 0b1101'0000'1011'0011'1010'1100'1001'0011'1001'1010'1100'1111'1100'1000'1100'0101
-        0xFFFFFFFFFFFFFFC5, // 0b1111'1111'1111'1111'1111'1111'1111'1101
-        0xFFFFFFFFFFFFFF43, // 0b1111'1111'1111'1111'1111'1111'1111'0100
-        0xFFFFFFFFFFFFFC2F, // 0b1111'1111'1111'1111'1111'1111'1100'1111
-        0xFFFFFFFFFFFFF837, // 0b1111'1111'1111'1111'1111'1111'1100'1000
+        0xFFFFFFFFFFFFFFC5,                                      // 0b1111'1111'1111'1111'1111'1111'1111'1101
+        0xFFFFFFFFFFFFFF43,                                      // 0b1111'1111'1111'1111'1111'1111'1111'0100
+        0xFFFFFFFFFFFFFC2F,                                      // 0b1111'1111'1111'1111'1111'1111'1100'1111
+        0xFFFFFFFFFFFFF837,                                      // 0b1111'1111'1111'1111'1111'1111'1100'1000
     ];
     pub const SEED: SeedType = (0xD0B3AC93 as BaseType) << 32 | 0x9ACFC8C5;
     pub const SHIFTS: [u32; 8] = [41, 37, 29, 23, 19, 17, 11, 7];
@@ -80,10 +80,7 @@ pub trait NoiseVec {
     fn with_noise(size: impl AsPrimitive<usize>) -> Self;
     fn with_random_noise(size: impl AsPrimitive<usize>) -> Self;
     fn with_seeded_noise(size: impl AsPrimitive<usize>, seed: impl AsPrimitive<BaseType>) -> Self;
-    fn with_random_seeded_noise(
-        size: impl AsPrimitive<usize>,
-        seed: impl AsPrimitive<BaseType>,
-    ) -> Self;
+    fn with_random_seeded_noise(size: impl AsPrimitive<usize>, seed: impl AsPrimitive<BaseType>) -> Self;
 }
 
 impl<O> NoiseVec for Vec<O>
@@ -101,8 +98,7 @@ where
         let seed = seed.as_();
         let mut vec = Vec::with_capacity(count.as_());
         vec.par_extend((0..count.as_()).into_par_iter().map(|idx| {
-            if TypeId::of::<O>() == TypeId::of::<f64>() || TypeId::of::<O>() == TypeId::of::<f32>()
-            {
+            if TypeId::of::<O>() == TypeId::of::<f64>() || TypeId::of::<O>() == TypeId::of::<f32>() {
                 let noise = get_1d_noise(idx, seed, BITS, SHIFTS).to_f64().unwrap();
                 let max = BaseType::MAX.to_f64().unwrap();
                 noise.div(max).as_()
@@ -117,10 +113,7 @@ where
         Self::with_random_seeded_noise(count, SEED)
     }
 
-    fn with_random_seeded_noise(
-        count: impl AsPrimitive<usize>,
-        seed: impl AsPrimitive<SeedType>,
-    ) -> Self {
+    fn with_random_seeded_noise(count: impl AsPrimitive<usize>, seed: impl AsPrimitive<SeedType>) -> Self {
         let seed = seed.as_();
         let mut vec = Vec::with_capacity(count.as_());
         let chunk_size = count.as_() / rayon::current_num_threads();
@@ -148,10 +141,7 @@ impl Default for Rng {
 
 impl Rng {
     pub fn new(seed: impl AsPrimitive<u64>) -> Self {
-        let mut new_rng = Self {
-            state: 0.as_(),
-            seed: seed.as_(),
-        };
+        let mut new_rng = Self { state: 0.as_(), seed: seed.as_() };
         new_rng.rand();
         new_rng
     }
@@ -247,10 +237,7 @@ impl Rng {
         f64: AsPrimitive<O> + ToPrimitive,
         O: Copy + ToPrimitive + 'static + Bounded,
     {
-        let default_max = O::max_value()
-            .to_f64()
-            .unwrap_or_default()
-            .min(BASE_TYPE_MAX_F64);
+        let default_max = O::max_value().to_f64().unwrap_or_default().min(BASE_TYPE_MAX_F64);
         let start = match range.start_bound() {
             Bound::Included(start) => start.to_f64().unwrap_or_default(),
             Bound::Excluded(start) => start.to_f64().unwrap_or_default() + f64::EPSILON,
@@ -281,11 +268,9 @@ impl Rng {
             // Fallback: reservoir sampling for unknown-size iterators
             _ => data
                 .enumerate()
-                .fold(None, |chosen: Option<&'a O>, (count, item)| {
-                    match self.gen_range(0..=count) == 0 {
-                        true => Some(item),
-                        false => chosen,
-                    }
+                .fold(None, |chosen: Option<&'a O>, (count, item)| match self.gen_range(0..=count) == 0 {
+                    true => Some(item),
+                    false => chosen,
                 }),
         }
     }
@@ -323,12 +308,7 @@ where
 }
 
 #[inline(always)]
-pub fn get_1d_noise<X, S, O>(
-    value: X,
-    seed: S,
-    bits: impl IntoIterator<Item = impl AsPrimitive<BaseType>>,
-    shifts: impl IntoIterator<Item = impl AsPrimitive<u32>>,
-) -> O
+pub fn get_1d_noise<X, S, O>(value: X, seed: S, bits: impl IntoIterator<Item = impl AsPrimitive<BaseType>>, shifts: impl IntoIterator<Item = impl AsPrimitive<u32>>) -> O
 where
     X: AsPrimitive<BaseType>,
     S: AsPrimitive<BaseType>,
@@ -359,20 +339,12 @@ where
 }
 
 #[inline(always)]
-pub fn get_fast_1d_noise<O>(
-    value: impl AsPrimitive<BaseType>,
-    seed: impl AsPrimitive<BaseType>,
-) -> O
+pub fn get_fast_1d_noise<O>(value: impl AsPrimitive<BaseType>, seed: impl AsPrimitive<BaseType>) -> O
 where
     O: AsPrimitive<BaseType>,
     BaseType: AsPrimitive<O>,
 {
-    get_1d_noise(
-        value,
-        seed,
-        BITS.into_iter().take(3),
-        SHIFTS.into_iter().take(3),
-    )
+    get_1d_noise(value, seed, BITS.into_iter().take(3), SHIFTS.into_iter().take(3))
 }
 
 #[cfg(test)]
@@ -393,13 +365,8 @@ mod tests {
     #[case::u32_1(1_u32, SEED, BITS, SHIFTS, 2627291322_u32)]
     #[case::u64_0(0_u64, SEED, BITS, SHIFTS, 12296723819396979203_u64)]
     #[case::u64_1(1_u64, SEED, BITS, SHIFTS, 4035685362827872442_u64)]
-    fn test_get_1d_noise<I, S, E>(
-        #[case] input: I,
-        #[case] seed: S,
-        #[case] bits: impl IntoIterator<Item = BaseType>,
-        #[case] shifts: impl IntoIterator<Item = u32>,
-        #[case] expected: E,
-    ) where
+    fn test_get_1d_noise<I, S, E>(#[case] input: I, #[case] seed: S, #[case] bits: impl IntoIterator<Item = BaseType>, #[case] shifts: impl IntoIterator<Item = u32>, #[case] expected: E)
+    where
         I: AsPrimitive<BaseType>,
         S: AsPrimitive<BaseType>,
         E: AsPrimitive<BaseType> + PartialEq + Debug,
@@ -473,11 +440,8 @@ mod tests {
     #[case::u16_2d_0([0_u16, 1_u16], SEED, 3432_u16)]
     #[case::u16_2d_1([1_u16, 0_u16], SEED, 10432_u16)]
     #[case::u16_3d_0([0_u16, 1_u16, 2_u16], SEED, 53411_u16)]
-    fn test_get_noise<I, S, E>(
-        #[case] input: impl IntoIterator<Item = I>,
-        #[case] seed: S,
-        #[case] expected: E,
-    ) where
+    fn test_get_noise<I, S, E>(#[case] input: impl IntoIterator<Item = I>, #[case] seed: S, #[case] expected: E)
+    where
         I: AsPrimitive<BaseType>,
         S: AsPrimitive<BaseType>,
         E: AsPrimitive<BaseType> + PartialEq + Debug + Sum<E> + WrappingAdd,
