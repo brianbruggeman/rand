@@ -11,10 +11,9 @@ on:
 
     workflow_dispatch:
       inputs:
-        ref:
-          description: 'Commit SHA to run the workflow on'
-          required: true
-          default: 'main'
+        force:
+            type: boolean
+            description: 'Force a release'
 
 jobs:
   semrel:
@@ -37,7 +36,7 @@ jobs:
         uses: brianbruggeman/semrel@main
 
   release:
-    if: ${{ needs.semrel.outputs.version-changed == 'true' }}
+    if: ${{ needs.semrel.outputs.version-changed == 'true' || github.event.inputs.force }}
     environment: release
     needs: [semrel]
     runs-on: ubuntu-latest
