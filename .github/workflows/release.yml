@@ -1,4 +1,4 @@
-name: CD
+name: Release
 
 permissions:
   contents: write
@@ -20,6 +20,7 @@ jobs:
   semrel:
     # Ensure that the CD workflow only triggers when the CI workflow succeeds
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    environment: release
     runs-on: ubuntu-latest
     outputs:
       current-version: ${{ steps.semrel.outputs.current-version }}
@@ -37,6 +38,7 @@ jobs:
 
   release:
     if: ${{ needs.semrel.outputs.version-changed == 'true' }}
+    environment: release
     needs: [semrel]
     runs-on: ubuntu-latest
     permissions:
