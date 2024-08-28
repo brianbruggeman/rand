@@ -1,6 +1,6 @@
 [package]
 name = "rand"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 
 [dependencies]
@@ -16,25 +16,30 @@ features = ["i128", "libm"]
 criterion = "0.5.1"
 rstest = "0.22.0"
 
+[profile.bench]
+debug = true
+
 [[bench]]
 name = "choose"
 harness = false
+required-features = []
 
 [[bench]]
 name = "lookups"
 harness = false
+required-features = []
 
 [[bench]]
 name = "rand"
 harness = false
+required-features = []
 
 [[bench]]
 name = "range"
 harness = false
+required-features = []
 
 [[bench]]
 name = "perf"
 harness = false
-
-[profile.bench]
-debug = true
+required-features = []
