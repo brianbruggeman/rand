@@ -47,3 +47,7 @@ jobs:
       - name: Test
         if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
         run: cargo test
+
+      - name: Bench
+        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
+        run: cargo bench --bench=rand
