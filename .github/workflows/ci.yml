@@ -4,11 +4,16 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force the CI run (true/false)'
+        required: false
+        default: 'false'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 
 jobs:
   cargo:
@@ -24,33 +29,33 @@ jobs:
         uses: brianbruggeman/semrel@main
 
       - name: Install rust toolchain
-        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
+        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version || github.event.inputs.force }}
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install nightly with rustfmt and clippy
-        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
+        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version || github.event.inputs.force }}
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt, clippy
 
       - name: Style
-        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
+        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version || github.event.inputs.force }}
         run: cargo +nightly fmt -- --check
 
       - name: Lint
-        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
+        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version || github.event.inputs.force }}
         run: cargo +nightly clippy
 
       - name: Build
-        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
+        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version || github.event.inputs.force }}
         run: cargo build
 
       - name: Test
-        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
+        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version || github.event.inputs.force }}
         run: cargo test
 
       - name: Bench
-        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version }}
+        if: ${{ steps.semrel.outputs.next-version != steps.semrel.outputs.current-version || github.event.inputs.force }}
         env:
             BENCHMARK_RAND_MEDIAN_TIME_NS: ${{ vars.BENCHMARK_RAND_MEDIAN_TIME_NS }}
         run: |
