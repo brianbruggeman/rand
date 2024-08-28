@@ -247,6 +247,10 @@ impl Rng {
         f64: AsPrimitive<O> + ToPrimitive,
         O: Copy + ToPrimitive + 'static + Bounded,
     {
+        let default_max = O::max_value()
+            .to_f64()
+            .unwrap_or_default()
+            .min(BASE_TYPE_MAX_F64);
         let start = match range.start_bound() {
             Bound::Included(start) => start.to_f64().unwrap_or_default(),
             Bound::Excluded(start) => start.to_f64().unwrap_or_default() + f64::EPSILON,
@@ -254,49 +258,36 @@ impl Rng {
         };
 
         let end = match range.end_bound() {
-            Bound::Included(end) => end
-                .to_f64()
-                .unwrap_or(O::max_value().to_f64().unwrap_or(f64::MAX)),
-            Bound::Excluded(end) => {
-                end.to_f64()
-                    .unwrap_or(O::max_value().to_f64().unwrap_or(f64::MAX))
-                    - f64::EPSILON
-            }
-            Bound::Unbounded => O::max_value().to_f64().unwrap_or(f64::MAX), // Cap at O's max value
+            Bound::Included(end) => end.to_f64().unwrap_or(default_max),
+            Bound::Excluded(end) => end.to_f64().unwrap_or(default_max) - f64::EPSILON,
+            Bound::Unbounded => default_max,
         };
 
         // Compute the range size
         let range_size = (end - start).abs();
 
         // Generate the random value in the calculated range
-        let value = start + self.rand() * range_size;
+        let rnd = self.rand();
+        let value = start + (rnd * range_size);
 
         // Convert back to the output type
-        value.min(O::max_value().to_f64().unwrap()).as_()
+        value.min(default_max).as_()
     }
 
     pub fn choose<'a, O>(&mut self, mut data: impl Iterator<Item = &'a O>) -> Option<&'a O> {
-        let (lower_bound, upper_bound) = data.size_hint();
+        match data.size_hint() {
+            (len, Some(upper_bound)) if len == upper_bound => data.nth(self.gen_range(0..len)),
 
-        if let Some(len) = upper_bound {
-            if lower_bound == len {
-                let idx = self.gen_range(0..len);
-                return data.nth(idx);
-            }
+            // Fallback: reservoir sampling for unknown-size iterators
+            _ => data
+                .enumerate()
+                .fold(None, |chosen: Option<&'a O>, (count, item)| {
+                    match self.gen_range(0..=count) == 0 {
+                        true => Some(item),
+                        false => chosen,
+                    }
+                }),
         }
-
-        // Fallback: reservoir sampling for unknown-size iterators
-        let mut chosen: Option<&'a O> = None;
-        let mut count = 0;
-
-        while let Some(item) = data.next() {
-            count += 1;
-            // Randomly replace the chosen item with probability 1/count
-            if self.gen_range(0..count) == 0 {
-                chosen = Some(item);
-            }
-        }
-        chosen
     }
 }
 
@@ -496,5 +487,49 @@ mod tests {
     {
         let result: E = get_noise(input.into_iter(), seed);
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_rand_differs_with_seed() {
+        let seed1 = SEED;
+        let seed2 = 0xDEADBEEF_u64;
+        let seed3 = 0xCAFEBABE_u64;
+
+        let mut rng1 = Rng::new(seed1);
+        let mut rng2 = Rng::new(seed2);
+        let mut rng3 = Rng::new(seed3);
+
+        let value1 = rng1.rand();
+        let value2 = rng2.rand();
+        let value3 = rng3.rand();
+
+        assert_ne!(value1, value2);
+        assert_ne!(value1, value3);
+        assert_ne!(value2, value3);
+    }
+
+    #[rstest]
+    #[case::vec(0..100)]
+    fn test_gen_range_differs_with_seed<O>(#[case] data: impl IntoIterator<Item = O>)
+    where
+        O: Debug + PartialEq,
+    {
+        let seed1 = SEED;
+        let seed2 = 0xDEADBEEF_u64;
+        let seed3 = 0xCAFEBABE_u64;
+
+        let mut rng1 = Rng::new(seed1);
+        let mut rng2 = Rng::new(seed2);
+        let mut rng3 = Rng::new(seed3);
+
+        let data = data.into_iter().collect::<Vec<_>>();
+
+        let value1 = rng1.choose(data.iter());
+        let value2 = rng2.choose(data.iter());
+        let value3 = rng3.choose(data.iter());
+
+        assert_ne!(value1, value2);
+        assert_ne!(value1, value3);
+        assert_ne!(value2, value3);
     }
 }
