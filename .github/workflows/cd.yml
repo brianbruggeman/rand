@@ -18,6 +18,8 @@ on:
 
 jobs:
   semrel:
+    # Ensure that the CD workflow only triggers when the CI workflow succeeds
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     outputs:
       current-version: ${{ steps.semrel.outputs.current-version }}
