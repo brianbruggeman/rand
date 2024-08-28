@@ -33,7 +33,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     group.bench_with_input(
         BenchmarkId::new("check_regression", "rand"),
         &expected_median_time_ns,
-        |b, &threshold| {
+        |b, &_threshold| {
             b.iter_custom(|iters| {
                 let mut rng = black_box(rand::Rng::default());
                 let start = Instant::now();
