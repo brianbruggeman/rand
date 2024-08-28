@@ -6,7 +6,14 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("rand_benchmark");
 
     // Expected threshold in nanoseconds (e.g., 50 ns)
-    let expected_median_time_ns = 10;
+    let default_median_time_ns = 10;
+    let expected_median_time_ns = match std::env::var("BENCHMARK_RAND_MEDIAN_TIME_NS") {
+        Ok(v) => match v.parse::<u128>() {
+            Ok(v) => v,
+            Err(_why) => default_median_time_ns,
+        }
+        Err(_why) => default_median_time_ns
+    };
 
     group.bench_function("rand", |b: &mut Bencher| {
         b.iter_custom(|iters| {
