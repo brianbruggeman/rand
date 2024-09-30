@@ -14,7 +14,7 @@ features = ["i128", "libm"]
 
 [dev-dependencies]
 criterion = "0.5.1"
-rstest = "0.22.0"
+rstest = "0.23.0"
 
 [profile.bench]
 debug = true
