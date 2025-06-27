@@ -76,6 +76,8 @@ pub struct Rng {
     seed: SeedType,
 }
 
+pub type ThreadRng = Rng;
+
 pub trait NoiseVec {
     fn with_noise(size: impl AsPrimitive<usize>) -> Self;
     fn with_random_noise(size: impl AsPrimitive<usize>) -> Self;
@@ -245,7 +247,10 @@ impl Rng {
         };
 
         let end = match range.end_bound() {
-            Bound::Included(end) => end.to_f64().unwrap_or(default_max),
+            Bound::Included(end) => match std::any::type_name::<O>().contains("i") || std::any::type_name::<O>().contains("u") {
+                true => end.to_f64().unwrap_or(default_max) + 1.0,
+                false => end.to_f64().unwrap_or(default_max),
+            },
             Bound::Excluded(end) => end.to_f64().unwrap_or(default_max) - f64::EPSILON,
             Bound::Unbounded => default_max,
         };
