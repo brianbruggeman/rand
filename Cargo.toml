@@ -43,3 +43,6 @@ required-features = []
 name = "perf"
 harness = false
 required-features = []
+
+[lints.rust]
+warnings = "deny"
