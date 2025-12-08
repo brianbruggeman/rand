@@ -13,7 +13,7 @@ version = "0.2.19"
 features = ["i128", "libm"]
 
 [dev-dependencies]
-criterion = "0.8.0"
+criterion = "0.8.1"
 rstest = "0.26.1"
 
 [profile.bench]
